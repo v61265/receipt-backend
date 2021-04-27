@@ -1,3 +1,5 @@
+const { getQueryPromise, conn } = require("./query");
+
 class GeneralError extends Error {
   constructor(message) {
     super();
@@ -20,8 +22,9 @@ class NotFound extends GeneralError {}
 const MissingError = new BadRequest("資料輸入不齊全，請輸入完整資料");
 const VarifyError = new Unauthorized("驗證失敗，請重新登入");
 
-const handleError = (error, req, res, next) => {
+const handleError = async (error, req, res, next) => {
   console.log("error:", error);
+  await conn.rollback();
   if (error instanceof GeneralError) {
     return res.status(error.getStatus()).json({
       ok: 0,

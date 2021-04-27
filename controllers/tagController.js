@@ -1,72 +1,55 @@
-const bcrypt = require("bcryptjs");
-const mysql = require("mysql");
-const {
-  GeneralError,
-  MissingError,
-  VarifyError,
-} = require("../middlewares/error");
+const { GeneralError, MissingError } = require("../middlewares/error");
+const { getQueryPromise, conn } = require("../middlewares/query");
 
-const userController = {
+const tagController = {
   add: async (req, res) => {
     console.log("middleware: add tag");
-    const { content } = req.body;
     // 檢查空值
+    const { content } = req.body;
     if (!content) throw MissingError;
-    const connection = mysql.createConnection(res.locals.pool);
-    connection.query(
-      "insert into tags set ?",
-      {
-        content,
-      },
-      function (err, fields) {
-        if (err) throw new GeneralError(err);
-        return res.status(200).json({
-          ok: 1,
-          id: fields.insertId,
-        });
-      }
-    );
+    // 新增
+    const result = await getQueryPromise(`insert into tags set ?`, [
+      { content },
+    ]);
+    return res.status(200).json({
+      ok: 1,
+      id: result.insertId,
+    });
   },
 
   delete: async (req, res) => {
     console.log("middleware: delete tag");
     const id = req.params.id;
-    const connection = mysql.createConnection(res.locals.pool);
-    connection.query(
-      "delete from tags where id = ?",
-      id,
-      function (err, fields) {
-        if (err) throw new GeneralError(err);
-        if (!fields.affectedRows) throw new GeneralError("不存在該 tag");
-        return res.status(200).json({
-          ok: 1,
-        });
-      }
+    await conn.beginTransaction();
+    // 刪除
+    const result = await getQueryPromise(`delete from tags where id = ?`, [id]);
+    if (!result.affectedRows) throw new GeneralError("不存在該 tag");
+    // 將擁有該 tag 的發票的 iagId 清空
+    const updateReceipt = await getQueryPromise(
+      `update receipts set ? where tagId = ?`,
+      [{ tagId: null }, id]
     );
+    await conn.commit();
+    return res.status(200).json({
+      ok: 1,
+    });
   },
 
   update: async (req, res) => {
     console.log("middleware: update tag");
     const id = req.params.id;
     const { content } = req.body;
-    const connection = mysql.createConnection(res.locals.pool);
-    connection.query(
-      "update tags set ? where id = ?",
-      [
-        {
-          content,
-        },
-        id,
-      ],
-      function (err, fields) {
-        if (err) throw new GeneralError(err);
-        if (!fields.affectedRows) throw new GeneralError("不存在該 tag");
-        return res.status(200).json({
-          ok: 1,
-        });
-      }
-    );
+    const result = await getQueryPromise(`update tags set ? where id = ?`, [
+      {
+        content,
+      },
+      id,
+    ]);
+    if (!result.affectedRows) throw new GeneralError("不存在該 tag");
+    return res.status(200).json({
+      ok: 1,
+    });
   },
 };
 
-module.exports = userController;
+module.exports = tagController;
