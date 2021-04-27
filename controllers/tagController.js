@@ -50,6 +50,15 @@ const tagController = {
       ok: 1,
     });
   },
+
+  getTags: async (req, res) => {
+    console.log("middleware: get Tags");
+    const tags = await getQueryPromise(`select * from tags`, []);
+    return res.status(200).json({
+      ok: 1,
+      tags,
+    });
+  },
 };
 
 module.exports = tagController;
